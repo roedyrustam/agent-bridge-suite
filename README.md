@@ -25,7 +25,23 @@ claude mcp add agent-memory-sync node ./plugins/agent-memory-sync/dist/index.js
 claude mcp add speculative-twin node ./plugins/speculative-twin/dist/index.js
 ```
 
-### 3. Environment Variables (Opsional untuk Speculative Twin)
+### 3. Unified Terminal CLI (`agent-bridge`)
+Anda juga dapat berinteraksi langsung melalui terminal tanpa membuka MCP client:
+```bash
+# Query memori dengan ranking BM25
+pnpm agent-bridge memory recall "prisma connection pool"
+
+# Cek telemetry & statistik memori
+pnpm agent-bridge memory stats
+
+# Jalankan adversarial review pada file kode
+pnpm agent-bridge twin critique ./src/auth.ts --context="Strict auth check"
+
+# Generate draf spekulatif 3 paradigma
+pnpm agent-bridge twin speculate "Rate limiter with token bucket algorithm"
+```
+
+### 4. Environment Variables (Opsional untuk Speculative Twin)
 Secara bawaan, `speculative-twin` dapat bekerja 100% offline menggunakan analisis heuristik statis berpresisi tinggi. Untuk mengaktifkan cross-model peer review melalui API remote, sediakan salah satu API key berikut:
 - Anthropic: `export ANTHROPIC_API_KEY="sk-ant-..."` (opsional: `ANTHROPIC_MODEL`)
 - Google Gemini: `export GEMINI_API_KEY="..."` (opsional: `GEMINI_MODEL`)
