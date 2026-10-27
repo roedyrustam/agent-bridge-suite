@@ -13,6 +13,7 @@ describe('MemoryStore with BM25 Ranking and Serialization', () => {
     store = new MemoryStore({
       baseDir: tempDir,
       filePath: path.join(tempDir, 'memories.json'),
+      driver: 'json',
     });
   });
 
@@ -164,6 +165,7 @@ describe('MemoryStore with BM25 Ranking and Serialization', () => {
     const newStore = new MemoryStore({
       baseDir: newTempDir,
       filePath: path.join(newTempDir, 'memories.json'),
+      driver: 'json',
     });
 
     const importResult = newStore.importJson(exported);

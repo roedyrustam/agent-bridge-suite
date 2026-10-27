@@ -20,6 +20,7 @@ export interface RecallResult {
 }
 
 export interface MemoryStats {
+  engine: 'sqlite' | 'json';
   total: number;
   byCategory: Record<MemoryCategory, number>;
   byScope: Record<string, number>;
@@ -30,4 +31,7 @@ export interface MemoryStats {
 export interface MemoryStoreOptions {
   baseDir?: string;
   filePath?: string;
+  sqlitePath?: string;
+  driver?: 'sqlite' | 'json';
+  autoMigrate?: boolean;
 }

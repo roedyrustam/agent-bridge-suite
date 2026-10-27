@@ -226,6 +226,7 @@ Matched Terms: ${r.matchedTerms.join(', ')} | Tags: ${r.item.tags.join(', ')} | 
                 ? stats.mostAccessed.map((m) => `  - ${m.title} (${m.accessCount} recalls)`).join('\n')
                 : '  - none';
             const output = `📊 **Episodic Memory Statistics**:
+- Storage Engine: **${stats.engine.toUpperCase()}** (${stats.engine === 'sqlite' ? 'Native node:sqlite FTS5' : 'JSON Store'})
 - Total Memories: **${stats.total}**
 - By Category:
 ${catSummary}

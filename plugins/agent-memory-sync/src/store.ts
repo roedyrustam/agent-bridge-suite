@@ -1,9 +1,18 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { MemoryItem, RecallResult, MemoryCategory, MemoryStats, MemoryStoreOptions } from './types.js';
+import {
+  MemoryItem,
+  RecallResult,
+  MemoryCategory,
+  MemoryStats,
+  MemoryStoreOptions,
+} from './types.js';
+import { SqliteMemoryStore } from './sqlite-store.js';
 
-export class MemoryStore {
+export { SqliteMemoryStore };
+
+export class JsonMemoryStore {
   private baseDir: string;
   private filePath: string;
   private memories: Map<string, MemoryItem> = new Map();
@@ -29,7 +38,7 @@ export class MemoryStore {
         this.flush();
       }
     } catch (err) {
-      console.error('[MemoryStore] Failed to initialize store:', err);
+      console.error('[JsonMemoryStore] Failed to initialize store:', err);
     }
   }
 
@@ -40,7 +49,7 @@ export class MemoryStore {
       fs.writeFileSync(tempPath, JSON.stringify(items, null, 2), 'utf-8');
       fs.renameSync(tempPath, this.filePath);
     } catch (err) {
-      console.error('[MemoryStore] Failed to flush memories to disk:', err);
+      console.error('[JsonMemoryStore] Failed to flush memories to disk:', err);
     }
   }
 
@@ -71,9 +80,6 @@ export class MemoryStore {
     return item;
   }
 
-  /**
-   * Tokenizes text into normalized keywords.
-   */
   private tokenize(text: string): string[] {
     return text
       .toLowerCase()
@@ -81,9 +87,6 @@ export class MemoryStore {
       .filter((t) => t.length >= 2);
   }
 
-  /**
-   * High-accuracy BM25 ranking algorithm with field-specific weighting.
-   */
   public recall(query: string, limit: number = 5, projectScope?: string): RecallResult[] {
     const terms = this.tokenize(query);
     if (terms.length === 0) {
@@ -106,7 +109,6 @@ export class MemoryStore {
     const k1 = 1.2;
     const b = 0.75;
 
-    // Precompute document field tokens and lengths
     const docData = items.map((item) => {
       const titleTokens = this.tokenize(item.title);
       const tagTokens = item.tags.flatMap((t) => this.tokenize(t));
@@ -122,19 +124,16 @@ export class MemoryStore {
       };
     });
 
-    const avgdl =
-      docData.reduce((acc, d) => acc + d.totalLen, 0) / Math.max(N, 1);
-
-    // Compute document frequency (DF) for each query term
+    const avgdl = docData.reduce((acc, d) => acc + d.totalLen, 0) / Math.max(N, 1);
     const dfMap = new Map<string, number>();
     for (const term of terms) {
       let df = 0;
       for (const d of docData) {
-        const inDoc =
+        if (
           d.titleTokens.includes(term) ||
           d.tagTokens.includes(term) ||
-          d.contentTokens.includes(term);
-        if (inDoc) {
+          d.contentTokens.includes(term)
+        ) {
           df++;
         }
       }
@@ -152,8 +151,6 @@ export class MemoryStore {
         const df = dfMap.get(term) || 0;
         if (df === 0) continue;
 
-        // Count weighted term frequency in document:
-        // Title weight = 3.5, Tags weight = 2.5, Content weight = 1.0
         const titleCount = d.titleTokens.filter((t) => t === term || t.includes(term)).length;
         const tagCount = d.tagTokens.filter((t) => t === term || t.includes(term)).length;
         const contentCount = d.contentTokens.filter((t) => t === term || t.includes(term)).length;
@@ -162,7 +159,6 @@ export class MemoryStore {
 
         if (tf > 0) {
           matchedTerms.push(term);
-          // Standard BM25 IDF formulation
           const idf = Math.log(1 + (N - df + 0.5) / (df + 0.5));
           const num = tf * (k1 + 1);
           const denom = tf + k1 * (1 - b + b * (d.totalLen / avgdl));
@@ -170,7 +166,6 @@ export class MemoryStore {
         }
       }
 
-      // Bonus for exact multi-token query matches in title or tags
       if (d.item.title.toLowerCase().includes(queryLower)) {
         score += 5.0;
       }
@@ -178,7 +173,6 @@ export class MemoryStore {
         score += 3.5;
       }
 
-      // Recency / access frequency bonus (capped)
       score += Math.min(d.item.accessCount * 0.2, 3.0);
 
       if (score > 0 && matchedTerms.length > 0) {
@@ -193,7 +187,6 @@ export class MemoryStore {
     results.sort((a, b) => b.score - a.score);
     const topResults = results.slice(0, limit);
 
-    // Update telemetry
     const now = new Date().toISOString();
     for (const res of topResults) {
       res.item.accessCount += 1;
@@ -258,6 +251,7 @@ export class MemoryStore {
       .map((i) => ({ id: i.id, title: i.title, accessCount: i.accessCount }));
 
     return {
+      engine: 'json',
       total: items.length,
       byCategory,
       byScope,
@@ -274,10 +268,10 @@ export class MemoryStore {
   public exportMarkdown(): string {
     const items = this.list();
     if (items.length === 0) {
-      return '# Agent Episodic Memory Store\n\nNo memories recorded yet.';
+      return '# Agent Episodic Memory Store (JSON)\n\nNo memories recorded yet.';
     }
 
-    const sections: string[] = ['# Agent Episodic Memory Store\n'];
+    const sections: string[] = ['# Agent Episodic Memory Store (JSON)\n'];
     for (const item of items) {
       sections.push(`## [${item.category.toUpperCase()}] ${item.title}
 - **ID**: \`${item.id}\`
@@ -326,5 +320,67 @@ ${item.content}
 
     this.flush();
     return { imported, updated, skipped };
+  }
+}
+
+/**
+ * Unified MemoryStore that defaults to high-scale SQLite with automatic
+ * graceful fallback to JsonMemoryStore if SQLite is disabled or unavailable.
+ */
+export class MemoryStore {
+  private backend: SqliteMemoryStore | JsonMemoryStore;
+
+  constructor(options?: MemoryStoreOptions) {
+    if (options?.driver === 'json') {
+      this.backend = new JsonMemoryStore(options);
+    } else {
+      try {
+        this.backend = new SqliteMemoryStore(options);
+      } catch (err) {
+        console.warn('[MemoryStore] SQLite initialization warning, falling back to JSON:', err);
+        this.backend = new JsonMemoryStore(options);
+      }
+    }
+  }
+
+  public record(params: {
+    category: MemoryCategory;
+    title: string;
+    content: string;
+    tags?: string[];
+    projectScope?: string;
+  }): MemoryItem {
+    return this.backend.record(params);
+  }
+
+  public recall(query: string, limit?: number, projectScope?: string): RecallResult[] {
+    return this.backend.recall(query, limit, projectScope);
+  }
+
+  public list(category?: MemoryCategory, projectScope?: string): MemoryItem[] {
+    return this.backend.list(category, projectScope);
+  }
+
+  public delete(id: string): boolean {
+    return this.backend.delete(id);
+  }
+
+  public getStats(): MemoryStats {
+    return this.backend.getStats();
+  }
+
+  public exportJson(): string {
+    return this.backend.exportJson();
+  }
+
+  public exportMarkdown(): string {
+    return this.backend.exportMarkdown();
+  }
+
+  public importJson(
+    jsonString: string,
+    mergeMode?: 'skip' | 'overwrite'
+  ): { imported: number; updated: number; skipped: number } {
+    return this.backend.importJson(jsonString, mergeMode);
   }
 }

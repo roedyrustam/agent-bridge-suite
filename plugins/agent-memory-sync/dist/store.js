@@ -1,7 +1,9 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-export class MemoryStore {
+import { SqliteMemoryStore } from './sqlite-store.js';
+export { SqliteMemoryStore };
+export class JsonMemoryStore {
     baseDir;
     filePath;
     memories = new Map();
@@ -27,7 +29,7 @@ export class MemoryStore {
             }
         }
         catch (err) {
-            console.error('[MemoryStore] Failed to initialize store:', err);
+            console.error('[JsonMemoryStore] Failed to initialize store:', err);
         }
     }
     flush() {
@@ -38,7 +40,7 @@ export class MemoryStore {
             fs.renameSync(tempPath, this.filePath);
         }
         catch (err) {
-            console.error('[MemoryStore] Failed to flush memories to disk:', err);
+            console.error('[JsonMemoryStore] Failed to flush memories to disk:', err);
         }
     }
     record(params) {
@@ -59,18 +61,12 @@ export class MemoryStore {
         this.flush();
         return item;
     }
-    /**
-     * Tokenizes text into normalized keywords.
-     */
     tokenize(text) {
         return text
             .toLowerCase()
             .split(/[\s,._\-/:;!?'"()[\]{}<>@#$%^&*+=~`|\\]+/)
             .filter((t) => t.length >= 2);
     }
-    /**
-     * High-accuracy BM25 ranking algorithm with field-specific weighting.
-     */
     recall(query, limit = 5, projectScope) {
         const terms = this.tokenize(query);
         if (terms.length === 0) {
@@ -89,7 +85,6 @@ export class MemoryStore {
         const N = items.length;
         const k1 = 1.2;
         const b = 0.75;
-        // Precompute document field tokens and lengths
         const docData = items.map((item) => {
             const titleTokens = this.tokenize(item.title);
             const tagTokens = item.tags.flatMap((t) => this.tokenize(t));
@@ -104,15 +99,13 @@ export class MemoryStore {
             };
         });
         const avgdl = docData.reduce((acc, d) => acc + d.totalLen, 0) / Math.max(N, 1);
-        // Compute document frequency (DF) for each query term
         const dfMap = new Map();
         for (const term of terms) {
             let df = 0;
             for (const d of docData) {
-                const inDoc = d.titleTokens.includes(term) ||
+                if (d.titleTokens.includes(term) ||
                     d.tagTokens.includes(term) ||
-                    d.contentTokens.includes(term);
-                if (inDoc) {
+                    d.contentTokens.includes(term)) {
                     df++;
                 }
             }
@@ -127,29 +120,24 @@ export class MemoryStore {
                 const df = dfMap.get(term) || 0;
                 if (df === 0)
                     continue;
-                // Count weighted term frequency in document:
-                // Title weight = 3.5, Tags weight = 2.5, Content weight = 1.0
                 const titleCount = d.titleTokens.filter((t) => t === term || t.includes(term)).length;
                 const tagCount = d.tagTokens.filter((t) => t === term || t.includes(term)).length;
                 const contentCount = d.contentTokens.filter((t) => t === term || t.includes(term)).length;
                 const tf = titleCount * 3.5 + tagCount * 2.5 + contentCount * 1.0;
                 if (tf > 0) {
                     matchedTerms.push(term);
-                    // Standard BM25 IDF formulation
                     const idf = Math.log(1 + (N - df + 0.5) / (df + 0.5));
                     const num = tf * (k1 + 1);
                     const denom = tf + k1 * (1 - b + b * (d.totalLen / avgdl));
                     score += idf * (num / denom);
                 }
             }
-            // Bonus for exact multi-token query matches in title or tags
             if (d.item.title.toLowerCase().includes(queryLower)) {
                 score += 5.0;
             }
             if (d.item.tags.some((t) => t.includes(queryLower) || queryLower.includes(t))) {
                 score += 3.5;
             }
-            // Recency / access frequency bonus (capped)
             score += Math.min(d.item.accessCount * 0.2, 3.0);
             if (score > 0 && matchedTerms.length > 0) {
                 results.push({
@@ -161,7 +149,6 @@ export class MemoryStore {
         }
         results.sort((a, b) => b.score - a.score);
         const topResults = results.slice(0, limit);
-        // Update telemetry
         const now = new Date().toISOString();
         for (const res of topResults) {
             res.item.accessCount += 1;
@@ -218,6 +205,7 @@ export class MemoryStore {
             .slice(0, 5)
             .map((i) => ({ id: i.id, title: i.title, accessCount: i.accessCount }));
         return {
+            engine: 'json',
             total: items.length,
             byCategory,
             byScope,
@@ -232,9 +220,9 @@ export class MemoryStore {
     exportMarkdown() {
         const items = this.list();
         if (items.length === 0) {
-            return '# Agent Episodic Memory Store\n\nNo memories recorded yet.';
+            return '# Agent Episodic Memory Store (JSON)\n\nNo memories recorded yet.';
         }
-        const sections = ['# Agent Episodic Memory Store\n'];
+        const sections = ['# Agent Episodic Memory Store (JSON)\n'];
         for (const item of items) {
             sections.push(`## [${item.category.toUpperCase()}] ${item.title}
 - **ID**: \`${item.id}\`
@@ -276,5 +264,50 @@ ${item.content}
         }
         this.flush();
         return { imported, updated, skipped };
+    }
+}
+/**
+ * Unified MemoryStore that defaults to high-scale SQLite with automatic
+ * graceful fallback to JsonMemoryStore if SQLite is disabled or unavailable.
+ */
+export class MemoryStore {
+    backend;
+    constructor(options) {
+        if (options?.driver === 'json') {
+            this.backend = new JsonMemoryStore(options);
+        }
+        else {
+            try {
+                this.backend = new SqliteMemoryStore(options);
+            }
+            catch (err) {
+                console.warn('[MemoryStore] SQLite initialization warning, falling back to JSON:', err);
+                this.backend = new JsonMemoryStore(options);
+            }
+        }
+    }
+    record(params) {
+        return this.backend.record(params);
+    }
+    recall(query, limit, projectScope) {
+        return this.backend.recall(query, limit, projectScope);
+    }
+    list(category, projectScope) {
+        return this.backend.list(category, projectScope);
+    }
+    delete(id) {
+        return this.backend.delete(id);
+    }
+    getStats() {
+        return this.backend.getStats();
+    }
+    exportJson() {
+        return this.backend.exportJson();
+    }
+    exportMarkdown() {
+        return this.backend.exportMarkdown();
+    }
+    importJson(jsonString, mergeMode) {
+        return this.backend.importJson(jsonString, mergeMode);
     }
 }

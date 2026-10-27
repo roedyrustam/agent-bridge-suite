@@ -218,7 +218,8 @@ async function main() {
     if (subCommand === 'stats') {
       const stats = store.getStats();
       console.log(`${c.bold}📊 Episodic Memory Statistics:${c.reset}`);
-      console.log(`- Total Memories: ${c.bold}${c.green}${stats.total}${c.reset}`);
+      console.log(`- Storage Engine: ${c.bold}${c.cyan}${stats.engine.toUpperCase()}${c.reset} (${stats.engine === 'sqlite' ? 'Native node:sqlite + FTS5 BM25' : 'In-Memory Map + JSON'})`);
+      console.log(`- Total Memories:  ${c.bold}${c.green}${stats.total}${c.reset}`);
       console.log(`- By Category:`);
       for (const [cat, count] of Object.entries(stats.byCategory)) {
         console.log(`    ${cat}: ${count}`);

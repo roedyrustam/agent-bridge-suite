@@ -2,10 +2,10 @@
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7+-blue.svg?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![MCP Protocol](https://img.shields.io/badge/MCP-v1.x-orange.svg?style=flat-square)](https://modelcontextprotocol.io/)
-[![Vitest](https://img.shields.io/badge/Tests-17%20Passing-brightgreen.svg?style=flat-square&logo=vitest)](https://vitest.dev/)
+[![Vitest](https://img.shields.io/badge/Tests-25%20Passing-brightgreen.svg?style=flat-square&logo=vitest)](https://vitest.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](./LICENSE)
 
-> Monorepo suite bridging **Antigravity** and **Claude Code** through persistent cross-IDE episodic memory (**BM25 Ranking Engine**) and multi-model adversarial peer review (**Speculative Consensus**).
+> Monorepo suite bridging **Antigravity** and **Claude Code** through persistent cross-IDE episodic memory (**Native SQLite FTS5 + BM25 Ranking Engine**) and multi-model adversarial peer review (**Speculative Consensus**).
 
 ---
 
@@ -13,7 +13,7 @@
 
 | Package | Description | Protocol | Key Features |
 | :--- | :--- | :--- | :--- |
-| **`agent-memory-sync`** | Local cross-IDE episodic memory bridge that prevents AI agent amnesia across sessions and editors. | MCP v1.x + Local Storage | • **BM25 Semantic Token Ranking** ($k_1=1.2, b=0.75$)<br>• **Project Scope Isolation** (`global` + private workspace)<br>• **Recall Telemetry & Hotspot Tracking**<br>• **JSON & Markdown Export / Import**<br>• Aggregate health metrics and statistics |
+| **`agent-memory-sync`** | High-scale local cross-IDE episodic memory bridge that prevents AI agent amnesia across sessions and editors. | MCP v1.x + Native SQLite / JSON | • **Native SQLite Storage (WAL Mode, node:sqlite)**<br>• **FTS5 Full-Text Search with C-Level BM25 Ranking**<br>• **Seamless Auto-Migration from `memories.json`**<br>• **Project Scope Isolation** (`global` + private workspace)<br>• **Recall Telemetry & Hotspot Tracking**<br>• **JSON & Markdown Export / Import**<br>• Aggregate health metrics and statistics |
 | **`speculative-twin`** | Multi-model adversarial peer consensus engine for stress-testing code drafts, eliminating hallucinations, and hardening systems. | MCP v1.x + Multi-Provider Adapter | • **Multi-Provider Support**: Anthropic Claude, Google Gemini, OpenAI-compatible APIs<br>• **High-Precision Zero-Token Heuristics** (100% offline)<br>• **P0 / P1 / P2 Severity Audit** (secrets, silent catch, SQLi, loose types, race conditions)<br>• **Speculative Paradigm Drafting** (Immutable, Streaming, Zero-Alloc)<br>• Consensus synthesis engine |
 
 ---
@@ -125,9 +125,10 @@ pnpm build
 
 ```text
 ✓ test/store.test.ts (7 tests)
+✓ test/sqlite-store.test.ts (8 tests)
 ✓ test/engine.test.ts (10 tests)
-Test Files  2 passed (2)
-Tests       17 passed (17)
+Test Files  3 passed (3)
+Tests       25 passed (25)
 ```
 
 ---
