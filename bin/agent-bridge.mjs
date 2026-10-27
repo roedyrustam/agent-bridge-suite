@@ -25,8 +25,8 @@ const c = {
 function printBanner() {
   console.log(`
 ${c.cyan}${c.bold}=======================================================
- 🚀 AGENT BRIDGE SUITE CLI — v0.2.0
- Cross-IDE Memory (BM25) & Speculative Adversarial Twin
+ 🚀 AGENT BRIDGE SUITE CLI — v1.0.0 (Stable Release)
+ Cross-IDE Memory (SQLite FTS5) & Speculative Adversarial Twin
 =======================================================${c.reset}
 `);
 }
@@ -39,14 +39,14 @@ ${c.bold}USAGE:${c.reset}
 
 ${c.bold}COMMANDS:${c.reset}
   ${c.green}memory${c.reset}
-    recall <query>            Query episodic memory with BM25 ranking
+    recall <query>            Query episodic memory with native SQLite FTS5 / BM25
                               Options: --limit=N, --scope=PROJECT
     record <title> <content>  Store a new architectural lesson or gotcha
                               Options: --category=gotchas|architecture|user_preferences|performance
                                        --tags=tag1,tag2, --scope=PROJECT
     list                      List all stored memories
                               Options: --category=..., --scope=...
-    stats                     Display memory metrics, top tags, and recall telemetry
+    stats                     Display memory metrics, storage engine, and telemetry
     export                    Export all memories to stdout or file
                               Options: --format=json|markdown, --output=PATH
     import <filePath>         Import memories from a JSON backup file
@@ -63,6 +63,11 @@ ${c.bold}COMMANDS:${c.reset}
                               Options: --context="..."
     status                    Show active model provider and capability mode
 
+  ${c.blue}hook${c.reset}
+    install                   Install Git pre-commit hook to automatically audit staged files
+    uninstall                 Remove Git pre-commit hook
+    status                    Check Git pre-commit hook status
+
 ${c.bold}GENERAL OPTIONS:${c.reset}
   --help, -h                  Show this help reference
   --version, -v               Display suite version
@@ -72,6 +77,7 @@ ${c.bold}EXAMPLES:${c.reset}
   $ agent-bridge memory stats
   $ agent-bridge twin critique ./src/auth.ts --context="Strict authentication middleware"
   $ agent-bridge twin speculate "Bounded async worker pool with backpressure"
+  $ agent-bridge hook install
 `);
 }
 
@@ -113,7 +119,7 @@ async function main() {
   }
 
   if (options.version || options.v) {
-    console.log('agent-bridge-suite v0.2.0');
+    console.log('agent-bridge-suite v1.0.0');
     return;
   }
 
@@ -354,7 +360,6 @@ async function main() {
         });
       }
 
-      // Exit code 1 if P0 issues exist (handy for pre-commit / CI)
       if (critique.issues.some((i) => i.severity === 'P0')) {
         process.exit(1);
       }
@@ -399,6 +404,76 @@ async function main() {
     }
 
     console.error(`${c.red}Unknown twin subcommand: "${subCommand}". Run agent-bridge --help for details.${c.reset}`);
+    process.exit(1);
+  }
+
+  // ----------------------------------------------------
+  // HOOK COMMANDS (Git Pre-Commit Guardrail)
+  // ----------------------------------------------------
+  if (moduleCommand === 'hook') {
+    const gitDir = path.resolve(process.cwd(), '.git');
+    if (!fs.existsSync(gitDir)) {
+      console.error(`${c.red}Error: No .git directory found in current working directory.${c.reset}`);
+      process.exit(1);
+    }
+
+    const hooksDir = path.join(gitDir, 'hooks');
+    if (!fs.existsSync(hooksDir)) {
+      fs.mkdirSync(hooksDir, { recursive: true });
+    }
+
+    const preCommitPath = path.join(hooksDir, 'pre-commit');
+
+    if (subCommand === 'install') {
+      const hookScript = `#!/usr/bin/env sh
+# Speculative-Twin Adversarial Git Hook
+echo "🕵️ [Speculative-Twin] Auditing staged files for P0 vulnerabilities & secret leaks..."
+
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\\.(ts|js|mjs|cjs)$')
+
+if [ -z "$STAGED_FILES" ]; then
+  exit 0
+fi
+
+for FILE in $STAGED_FILES; do
+  if [ -f "$FILE" ]; then
+    node ./bin/agent-bridge.mjs twin critique "$FILE" --context="Git Pre-commit Hook"
+    if [ $? -ne 0 ]; then
+      echo "❌ Commit rejected: Adversarial flaws found in $FILE"
+      exit 1
+    fi
+  fi
+done
+
+echo "✅ All staged files passed Speculative-Twin audit!"
+exit 0
+`;
+      fs.writeFileSync(preCommitPath, hookScript, { mode: 0o755 });
+      console.log(`${c.green}✅ Pre-commit hook installed successfully!${c.reset}`);
+      console.log(`Path: ${preCommitPath}`);
+      console.log(`Git will now automatically audit staged TypeScript/JavaScript files with Speculative-Twin before every commit.`);
+      return;
+    }
+
+    if (subCommand === 'uninstall') {
+      if (fs.existsSync(preCommitPath)) {
+        fs.unlinkSync(preCommitPath);
+        console.log(`${c.green}🗑️ Pre-commit hook uninstalled successfully.${c.reset}`);
+      } else {
+        console.log(`${c.yellow}No pre-commit hook found at ${preCommitPath}.${c.reset}`);
+      }
+      return;
+    }
+
+    if (subCommand === 'status') {
+      const exists = fs.existsSync(preCommitPath);
+      console.log(`${c.bold}⚓ Git Pre-commit Hook Status:${c.reset}`);
+      console.log(`- Installed: ${exists ? c.green + 'ACTIVE ✅' : c.yellow + 'NOT INSTALLED ❌'}${c.reset}`);
+      console.log(`- Location:  ${preCommitPath}`);
+      return;
+    }
+
+    console.error(`${c.red}Unknown hook subcommand: "${subCommand}". Usage: agent-bridge hook install | uninstall | status${c.reset}`);
     process.exit(1);
   }
 

@@ -1,6 +1,6 @@
 {
   "name": "agent-memory-sync",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Cross-IDE Episodic Memory MCP Server for Antigravity and Claude Code",
   "main": "dist/index.js",
   "type": "module",
