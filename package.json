@@ -1,0 +1,26 @@
+{
+  "name": "agent-bridge-suite",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cross-IDE Episodic Memory and Multi-Model Speculative Consensus Suite for Antigravity & Claude Code",
+  "workspaces": [
+    "plugins/*"
+  ],
+  "scripts": {
+    "build": "pnpm --filter \"./plugins/**\" build",
+    "test": "pnpm --filter \"./plugins/**\" test"
+  },
+  "keywords": [
+    "antigravity",
+    "claude-code",
+    "mcp",
+    "agentic-memory",
+    "consensus",
+    "speculative-decoding"
+  ],
+  "author": "Roedy",
+  "license": "MIT",
+  "devDependencies": {
+    "vitest": "^5.0.5"
+  }
+}

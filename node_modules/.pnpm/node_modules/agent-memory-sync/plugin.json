@@ -1,0 +1,9 @@
+{
+  "name": "agent-memory-sync",
+  "description": "Cross-IDE Episodic Memory Bridge for Antigravity & Claude Code. Locally preserves gotchas, architecture choices, and user preferences.",
+  "suggestedPrompts": [
+    "What are the stored gotchas and architecture rules for this project?",
+    "Record this debugging lesson into episodic memory",
+    "Recall relevant memory insights before starting this refactor"
+  ]
+}

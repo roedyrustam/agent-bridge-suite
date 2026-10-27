@@ -1,0 +1,9 @@
+{
+  "name": "speculative-twin",
+  "description": "Multi-Model Peer Consensus & Adversarial Review engine bridging Antigravity and Claude Code. Slashes hallucination, race conditions, and blindspots.",
+  "suggestedPrompts": [
+    "Run twin adversarial critique on this proposed architectural refactor",
+    "Generate speculative drafts for this concurrency problem and synthesize the best one",
+    "Have Claude audit this Gemini-generated patch before writing it to disk"
+  ]
+}
