@@ -2,7 +2,7 @@
   "name": "agent-bridge-suite",
   "version": "0.2.0",
   "private": true,
-  "description": "Cross-IDE Episodic Memory and Multi-Model Speculative Consensus Suite for Antigravity & Claude Code",
+  "description": "Cross-IDE Episodic Memory and Multi-Model Speculative Consensus Suite bridging Antigravity and Claude Code",
   "bin": {
     "agent-bridge": "./bin/agent-bridge.mjs"
   },
@@ -20,10 +20,16 @@
     "antigravity",
     "claude-code",
     "mcp",
-    "agentic-memory",
-    "consensus",
-    "speculative-decoding",
-    "cli"
+    "model-context-protocol",
+    "episodic-memory",
+    "bm25",
+    "adversarial-review",
+    "speculative-consensus",
+    "ai-agents",
+    "multi-agent",
+    "developer-tools",
+    "code-quality",
+    "typescript"
   ],
   "author": "Roedy",
   "license": "MIT",
